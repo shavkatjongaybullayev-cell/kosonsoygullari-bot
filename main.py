@@ -271,42 +271,52 @@ async def admin_pick_winner(message: types.Message):
         cursor.execute("SELECT user_id, id_number, phone, username FROM users")
         users = cursor.fetchall()
         
+        # Ishtirokchilar sonini tekshiramiz
         if not users:
             return await message.answer("Bazada ishtirokchilar yo'q. G'olibni aniqlab bo'lmaydi.")
         
-        # Tasodifiy bitta g'olibni tanlaymiz
-        winner = random.choice(users)
+        # Agar ishtirokchilar soni 4 tadan kam bo'lsa, borini tanlaydi
+        winners_count = min(len(users), 4)
         
-        winner_user_id = winner[0]
-        winner_id_number = winner[1]
-        winner_phone = winner[2]
-        winner_username = winner[3]
+        # Tasodifiy 4 ta g'olibni tanlaymiz (bir xil odam tushmaydi)
+        winners = random.sample(users, k=winners_count)
         
-        # G'olibga yuboriladigan tabrik xabari
-        congrats_text = (
-            "🎉 **URRAAA, SIZ G'OLIB BO'LDINGIZ!** 🎉\n\n"
-            f"Hurmatli ishtirokchi, siz 'Kosonsoy Gullari' konkursida omadli **random** funksiyasi orqali tanlab olindingiz va konkursimiz g'olibiga aylandingiz! 🏆\n\n"
-            f"Sizning omadli ID raqamingiz: *{winner_id_number}*\n\n"
-            "Yutuqni qabul qilib olish uchun yaqin daqiqalar ichida admin siz bilan bog'lanadi! Kanaldan chiqib ketmang. 🌸"
-        )
+        admin_report = f"🎲 **RANDOM NATIJALARI ({winners_count} TA G'OLIB)** 🎲\n\n"
         
-        try:
-            # G'olibning o'ziga xabar yuborish
-            await bot.send_message(chat_id=winner_user_id, text=congrats_text, parse_mode="Markdown")
-            winner_notified = "✅ G'olibga xabar avtomatik yetkazildi!"
-        except Exception as e:
-            winner_notified = f"❌ G'olibga xabar yuborib bo'lmadi (botni bloklagan bo'lishi mumkin): {e}"
-        
-        # Adminga g'olib haqida to'liq hisobot berish
-        admin_report = (
-            "🎲 **RANDOM NATIJASI (G'OLIB ANIQLANDI)** 🎲\n\n"
-            f"🏅 Konkurs G'olibi: {winner_id_number}-ID egasi\n"
-            f"📞 Telefon raqami: {winner_phone}\n"
-            f"👤 Telegram profili: @{winner_username}\n"
-            f"🆔 Telegram ID: `{winner_user_id}`\n\n"
-            f"{winner_notified}"
-        )
-        
+        # Har bitta g'olibni ketma-ketlikda qayta ishlaymiz
+        for index, winner in enumerate(winners, start=1):
+            winner_user_id = winner[0]
+            winner_id_number = winner[1]
+            winner_phone = winner[2]
+            winner_username = winner[3]
+            
+            # G'olibning o'ziga yuboriladigan xabar
+            congrats_text = (
+                f"🎉 **URRAAA, SIZ G'OLIB BO'LDINGIZ!** 🎉\n\n"
+                f"Hurmatli ishtirokchi, siz 'Kosonsoy Gullari' konkursida omadli **random** funksiyasi orqali tanlab olindingiz va konkursimiz g'oliblaridan biriga aylandingiz! 🏆\n\n"
+                f"Sizning omadli ID raqamingiz: *{winner_id_number}*\n\n"
+                "Yutuqni qabul qilib olish uchun yaqin daqiqalar ichida admin siz bilan bog'lanadi! Kanaldan chiqib ketmang. 🌸"
+            )
+            
+            try:
+                # Har bir g'olibga alohida xabar yuborish
+                await bot.send_message(chat_id=winner_user_id, text=congrats_text, parse_mode="Markdown")
+                winner_notified = "✅ Xabar yetkazildi"
+            except Exception:
+                winner_notified = "❌ Xabar yuborilmadi (bloklagan)"
+            
+            # Admin hisobotiga g'olibni qo'shish
+            admin_report += (
+                f"🏅 **{index}-O'rin G'olibi:** {winner_id_number}-ID egasi\n"
+                f"📞 Tel: {winner_phone}\n"
+                f"👤 Profil: @{winner_username}\n"
+                f"💬 Holat: {winner_notified}\n"
+                f"----------------------------------\n"
+            )
+            # Server yuklamasini kamaytirish uchun qisqa kutish
+            await asyncio.sleep(0.1)
+            
+        # Adminga umumiy 4 ta g'olib ro'yxatini yuborish
         await message.answer(admin_report, parse_mode="Markdown", reply_markup=get_admin_menu())
 
 # ============================================================
