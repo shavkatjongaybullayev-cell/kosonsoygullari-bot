@@ -1,3 +1,6 @@
+import os  # <-- AYNAN SHU ERGA, ENG BIRINCHI QATORGA!
+from aiogram import Bot, Dispatcher, executor, types
+# ... keyin qolgan kodingiz davom etib ketaveradi ...
 import logging
 import asyncio
 import sqlite3
@@ -270,7 +273,21 @@ if __name__ == "__main__":
     await site.start()
     
     # Botni ishga tushirish
-    await dp.start_polling(bot)
+    if __name__ == '__main__':
+    # Render tekin serveri talab qiladigan portni soxta ishga tushirish
+    import threading
+    from http.server import SimpleHTTPRequestHandler, HTTPServer
+    
+    def run_port():
+        port = int(os.environ.get("PORT", 10000))
+        server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
+        server.serve_forever()
+        
+    # Portni orqa fonda yoqamiz, shunda Render o'chib qolmaydi
+    threading.Thread(target=run_port, daemon=True).start()
+    
+    # Botingizning oddiy ishga tushish kodi (o'zingiznikini qoldiring):
+    executor.start_polling(dp, skip_updates=True)
 
 if __name__ == "__main__":
     asyncio.run(main())
