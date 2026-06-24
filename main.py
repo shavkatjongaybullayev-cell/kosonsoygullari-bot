@@ -3,13 +3,7 @@ import logging
 import asyncio
 import sqlite3
 import threading
-import random  # <-- AYNAN SHUNI QO'SHING
-from http.server import SimpleHTTPRequestHandler, HTTPServer
-import os
-import logging
-import asyncio
-import sqlite3
-import threading
+import random
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 
 from aiogram import Bot, Dispatcher, types, F
@@ -19,20 +13,18 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 # ============================================================
-# 1. ASOSIY SOZLAMALAR (Ma'lumotlar o'z joyida turibdi)
+# 1. ASOSIY SOZLAMALAR
 # ============================================================
-BOT_TOKEN = "8816635869:AAFhYWs9TeqRp9TeYTgJdBO555h_eCXEAsc"
+BOT_TOKEN = "8816635869:AAFhYWs9TeqRp9TeYTgJdBO555h_eCXEAsc" # <-- Yangi tokeniz turgan bo'lsa o'shani yozing!
 CHANNEL_ID = "@kosonsoygullari_official"
-ADMIN_ID = 644872296  # Sizning Telegram ID raqamingiz
+ADMIN_ID = 644872296  # Admin Telegram ID raqami
 
-# Logging sozlamalari
 logging.basicConfig(level=logging.INFO)
 
-# Bot va Dispatcher
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# Ma'lumotlar bazasini sozlash
+# Ma'lumotlar bazasi
 conn = sqlite3.connect("bot_database.db")
 cursor = conn.cursor()
 cursor.execute('''
@@ -49,7 +41,6 @@ conn.commit()
 # 2. FSM (HOLATLAR TIZIMI)
 # ============================================================
 class Registration(StatesGroup):
-    waiting_for_channel = State()
     waiting_for_phone = State()
 
 class AdminStates(StatesGroup):
@@ -71,28 +62,28 @@ def get_admin_menu():
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="👥 Foydalanuvchilar ro'yxati"), KeyboardButton(text="📥 Hamma ID larni yuklash")],
-            [KeyboardButton(text="❌ ID larni o'chirish"), KeyboardButton(text="✉️ Xabar tarqatish")],
-            [KeyboardButton(text="🏠 Foydalanuvchi menyusi")]
-        ],
-        resize_keyboard=True
-    )
-
-def get_admin_menu():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="👥 Foydalanuvchilar ro'yxati"), KeyboardButton(text="📥 Hamma ID larni yuklash")],
-            [KeyboardButton(text="🎲 G'olibni aniqlash"), KeyboardButton(text="❌ ID larni o'chirish")], # <-- Tugma shu yerga qo'shildi
+            [KeyboardButton(text="🎲 G'olibni aniqlash"), KeyboardButton(text="❌ ID larni o'chirish")],
             [KeyboardButton(text="✉️ Xabar tarqatish"), KeyboardButton(text="🏠 Foydalanuvchi menyusi")]
         ],
         resize_keyboard=True
     )
 
+def get_check_inline():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Kanalga o'tish", url="https://t.me/kosonsoygullari_official")],
+            [InlineKeyboardButton(text="✅ A'zo bo'ldim", callback_data="check_subs")]
+        ]
+    )
+
 # ============================================================
-# 4. START KOMANDASI VA RO'YXATDAN O'TISH
+# 4. START VA RO'YXATDAN O'TISH FUNKSIYALARI
 # ============================================================
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message, state: FSMContext):
+    await state.clear() # Har ihtimolga qarshi holatni tozalaymiz
     user_id = message.from_user.id
+    
     cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
     user = cursor.fetchone()
     
@@ -107,10 +98,8 @@ async def cmd_start(message: types.Message, state: FSMContext):
                 await request_phone(message, state)
             else:
                 await message.answer("Konkursda qatnashish uchun avval kanalimizga a'zo bo'ling:", reply_markup=get_check_inline())
-                await state.set_state(Registration.waiting_for_channel)
         except Exception:
             await message.answer("Konkursda qatnashish uchun avval kanalimizga a'zo bo'ling:", reply_markup=get_check_inline())
-            await state.set_state(Registration.waiting_for_channel)
 
 async def request_phone(message: types.Message, state: FSMContext):
     phone_button = ReplyKeyboardMarkup(
@@ -121,7 +110,6 @@ async def request_phone(message: types.Message, state: FSMContext):
     await message.answer("Roʻyxatdan oʻtish uchun quyidagi tugma orqali telefon raqamingizni yuboring:", reply_markup=phone_button)
     await state.set_state(Registration.waiting_for_phone)
 
-# --- INLINE KNOPKA TEKSHIRUVI ---
 @dp.callback_query(F.data == "check_subs")
 async def check_subscription(call: types.CallbackQuery, state: FSMContext):
     user_id = call.from_user.id
@@ -135,7 +123,6 @@ async def check_subscription(call: types.CallbackQuery, state: FSMContext):
     except Exception:
         await call.answer("Bot kanalni tekshira olmadi. Botni kanalda admin qiling!", show_alert=True)
 
-# --- TELEFON RAQAM QABUL QILISH ---
 @dp.message(Registration.waiting_for_phone, F.contact)
 async def process_phone(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
@@ -156,7 +143,7 @@ async def process_phone(message: types.Message, state: FSMContext):
     await message.answer(f"🎉 Tabriklaymiz! Siz muvaffaqiyatli ro'yxatdan o'tdingiz.\n\nSizning ID raqamingiz: *{new_id}*", parse_mode="Markdown", reply_markup=get_user_menu())
 
 # ============================================================
-# 5. FOYDALANUVCHI MENYUSI FUNKSIYALARI
+# 5. USER MENYU FUNKSIYALARI
 # ============================================================
 @dp.message(F.text == "🆔 Mening ID")
 async def show_my_id(message: types.Message):
@@ -180,7 +167,7 @@ async def show_help(message: types.Message):
     await message.answer("Ushbu bot 'Kosonsoy Gullari' kanali konkursida qatnashish uchun ID raqam beradi.\nHisobingiz faol bo'lishi uchun kanaldan chiqib ketmasligingiz kerak.")
 
 # ============================================================
-# 6. ADMIN PANEL STRUKTURASI
+# 6. ADMIN PANEL FUNKSIYALARI
 # ============================================================
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message):
@@ -216,10 +203,56 @@ async def admin_download_ids(message: types.Message):
         document = types.FSInputFile("ishtirokchilar.txt")
         await message.answer_document(document, caption="Barcha ishtirokchilar ro'yxati")
 
+# 🎲 RANDOM ORQALI 4 TA G'OLIBNI ANIQLASH VA ANIQ HISOBOT
+@dp.message(F.text == "🎲 G'olibni aniqlash")
+async def admin_pick_winner(message: types.Message):
+    if message.from_user.id == ADMIN_ID:
+        cursor.execute("SELECT user_id, id_number, phone, username FROM users")
+        users = cursor.fetchall()
+        
+        if not users:
+            return await message.answer("Bazada ishtirokchilar yo'q. G'olibni aniqlab bo'lmaydi.")
+        
+        winners_count = min(len(users), 4)
+        winners = random.sample(users, k=winners_count)
+        
+        admin_report = f"🎲 **RANDOM NATIJALARI ({winners_count} TA G'OLIB)** 🎲\n\n"
+        
+        for index, winner in enumerate(winners, start=1):
+            winner_user_id = winner[0]
+            winner_id_number = winner[1]
+            winner_phone = winner[2]
+            winner_username = winner[3]
+            
+            user_link = f"@{winner_username}" if winner_username and winner_username != "Mavjud emas" else "Mavjud emas"
+            
+            congrats_text = (
+                f"🎉 **URRAAA, SIZ G'OLIB BO'LDINGIZ!** 🎉\n\n"
+                f"Hurmatli ishtirokchi, siz 'Kosonsoy Gullari' konkursida omadli **random** funksiyasi orqali tanlab olindingiz va konkursimiz g'oliblaridan biriga aylandingiz! 🏆\n\n"
+                f"Sizning omadli ID raqamingiz: *{winner_id_number}*\n\n"
+                "Yutuqni qabul qilib olish uchun yaqin daqiqalar ichida admin siz bilan bog'lanadi! Kanaldan chiqib ketmang. 🌸"
+            )
+            
+            try:
+                await bot.send_message(chat_id=winner_user_id, text=congrats_text, parse_mode="Markdown")
+                winner_notified = "✅ Xabar yetkazildi"
+            except Exception:
+                winner_notified = "❌ Xabar yuborilmadi (bloklagan)"
+            
+            admin_report += (
+                f"🏅 **{index}-O'rin G'olibi:** {winner_id_number}-ID egasi\n"
+                f"📞 Tel: {winner_phone}\n"
+                f"👤 Profil: {user_link}\n"
+                f"💬 Holat: {winner_notified}\n"
+                f"----------------------------------\n"
+            )
+            await asyncio.sleep(0.1)
+            
+        await message.answer(admin_report, parse_mode="Markdown", reply_markup=get_admin_menu())
+
 @dp.message(F.text == "❌ ID larni o'chirish")
 async def admin_clear_ids(message: types.Message):
     if message.from_user.id == ADMIN_ID:
-        # Bazadan barcha foydalanuvchilarning ID raqamlarini olamiz
         cursor.execute("SELECT user_id FROM users")
         users = cursor.fetchall()
         
@@ -238,16 +271,12 @@ async def admin_clear_ids(message: types.Message):
         send_count = 0
         for user in users:
             try:
-                # user[0] qilib yozish shart, chunki tuple ichidan aniq ID raqamni ajratib olish kerak
                 await bot.send_message(chat_id=user[0], text=notification_text, parse_mode="Markdown")
                 send_count += 1
-                # Telegram serveri bloklab qo'ymasligi uchun har xabardan keyin 0.05 soniya kutamiz
                 await asyncio.sleep(0.05)
-            except Exception as e:
-                logging.error(f"Xabar yuborilmadi {user[0]}: {e}")
+            except Exception:
                 pass
         
-        # Xabarlar hamma ketgandan KEYIN bazani tozalaymiz
         cursor.execute("DELETE FROM users")
         conn.commit()
         
@@ -258,85 +287,20 @@ async def admin_clear_ids(message: types.Message):
             reply_markup=get_admin_menu()
         )
 
+# ✉️ HAMMAGA XABAR TARQATISH TIZIMI
 @dp.message(F.text == "✉️ Xabar tarqatish")
 async def admin_broadcast_start(message: types.Message, state: FSMContext):
     if message.from_user.id == ADMIN_ID:
         await message.answer("Barcha foydalanuvchilarga yuboriladigan xabar matnini kiriting:")
-        await state.set_state(AdminStates.waiting_for_broadcast)
-
-@dp.message(F.text == "🎲 G'olibni aniqlash")
-async def admin_pick_winner(message: types.Message):
-    if message.from_user.id == ADMIN_ID:
-        # Ma'lumotlarni aniq tartibda bazadan olamiz
-        cursor.execute("SELECT user_id, id_number, phone, username FROM users")
-        users = cursor.fetchall()
-        
-        if not users:
-            return await message.answer("Bazada ishtirokchilar yo'q. G'olibni aniqlab bo'lmaydi.")
-        
-        # Ishtirokchilar soniga qarab g'oliblar sonini belgilaymiz (maksimal 4 ta)
-        winners_count = min(len(users), 4)
-        
-        # Tasodifiy g'oliblarni tanlaymiz
-        winners = random.sample(users, k=winners_count)
-        
-        admin_report = f"🎲 **RANDOM NATIJALARI ({winners_count} TA G'OLIB)** 🎲\n\n"
-        
-        for index, winner in enumerate(winners, start=1):
-            # Indekslarni aniq o'z joyiga joylashtiramiz:
-            winner_user_id = winner[0]   # user_id
-            winner_id_number = winner[1]  # id_number
-            winner_phone = winner[2]      # phone
-            winner_username = winner[3]   # username
-            
-            # Username mavjudligini tekshiramiz
-            user_link = f"@{winner_username}" if winner_username and winner_username != "Mavjud emas" else "Mavjud emas"
-            
-            # G'olibning o'ziga boradigan tabrik xabari
-            congrats_text = (
-                f"🎉 **URRAAA, SIZ G'OLIB BO'LDINGIZ!** 🎉\n\n"
-                f"Hurmatli ishtirokchi, siz 'Kosonsoy Gullari' konkursida omadli **random** funksiyasi orqali tanlab olindingiz va konkursimiz g'oliblaridan biriga aylandingiz! 🏆\n\n"
-                f"Sizning omadli ID raqamingiz: *{winner_id_number}*\n\n"
-                "Yutuqni qabul qilib olish uchun yaqin daqiqalar ichida admin siz bilan bog'lanadi! Kanaldan chiqib ketmang. 🌸"
-            )
-            
-            try:
-                # G'olibga xabar yuborish
-                await bot.send_message(chat_id=winner_user_id, text=congrats_text, parse_mode="Markdown")
-                winner_notified = "✅ Xabar yetkazildi"
-            except Exception:
-                winner_notified = "❌ Xabar yuborilmadi (bloklagan)"
-            
-            # Admin uchun hisobot matnini shakllantiramiz
-            admin_report += (
-                f"🏅 **{index}-O'rin G'olibi:** {winner_id_number}-ID egasi\n"
-                f"📞 Tel: {winner_phone}\n"
-                f"👤 Profil: {user_link}\n"
-                f"💬 Holat: {winner_notified}\n"
-                f"----------------------------------\n"
-            )
-            await asyncio.sleep(0.1)
-            
-        # Adminga to'liq hisobotni yuboramiz
-        await message.answer(admin_report, parse_mode="Markdown", reply_markup=get_admin_menu())
-
-@dp.message(F.text == "✉️ Xabar tarqatish")
-async def admin_broadcast_start(message: types.Message, state: FSMContext):
-    if message.from_user.id == ADMIN_ID:
-        await message.answer("Barcha foydalanuvchilarga yuboriladigan xabar matnini kiriting:")
-        # Botni foydalanuvchidan matn kutish holatiga o'tkazamiz
         await state.set_state(AdminStates.waiting_for_broadcast)
 
 @dp.message(AdminStates.waiting_for_broadcast)
 async def admin_broadcast_send(message: types.Message, state: FSMContext):
-    # Faqat matnli xabarlarni tekshiramiz
     if not message.text:
         return await message.answer("Iltimos, faqat matnli xabar yuboring!")
         
     cursor.execute("SELECT user_id FROM users")
     users = cursor.fetchall()
-    
-    # Holatni srazi tozalaymiz
     await state.clear()
     
     if not users:
@@ -344,10 +308,8 @@ async def admin_broadcast_send(message: types.Message, state: FSMContext):
         
     send_count = 0
     await message.answer("Xabar yuborish boshlandi, iltimos kuting...")
-    
     for user in users:
         try:
-            # user[0] qilib yozish shart, chunki tuple ichida keladi
             await bot.send_message(chat_id=user[0], text=message.text)
             send_count += 1
             await asyncio.sleep(0.05)
@@ -355,9 +317,9 @@ async def admin_broadcast_send(message: types.Message, state: FSMContext):
             pass
             
     await message.answer(f"Xabar tarqatildi. {send_count} ta foydalanuvchiga yetib bordi.", reply_markup=get_admin_menu())
-    
+
 # ============================================================
-# 7. BOTNI ISHGA TUSHIRISH FUNKSIYASI (Aiogram 3 versiyada)
+# 7. BOTNI ISHGA TUSHIRISH FUNKSIYASI
 # ============================================================
 async def main():
     print("Kosonsoy Gullari boti muvaffaqiyatli ishga tushmoqda...")
@@ -365,15 +327,13 @@ async def main():
     await dp.start_polling(bot)
 
 # ============================================================
-# 8. RENDER TEKIN SERVERI UCHUN PORT BINDING (ORQA FONDA)
+# 8. RENDER PORT BINDING SYSTEM
 # ============================================================
 def run_port():
-    # Render tekin serveri talab qiladigan portni zaxiralash
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-# Port ochish xizmatini alohida oqimda (potok) yoqish
 threading.Thread(target=run_port, daemon=True).start()
 
 if __name__ == "__main__":
