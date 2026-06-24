@@ -267,30 +267,32 @@ async def admin_broadcast_start(message: types.Message, state: FSMContext):
 @dp.message(F.text == "🎲 G'olibni aniqlash")
 async def admin_pick_winner(message: types.Message):
     if message.from_user.id == ADMIN_ID:
-        # Bazadan barcha ishtirokchilarning ma'lumotlarini olamiz
+        # Ma'lumotlarni aniq tartibda bazadan olamiz
         cursor.execute("SELECT user_id, id_number, phone, username FROM users")
         users = cursor.fetchall()
         
-        # Ishtirokchilar sonini tekshiramiz
         if not users:
             return await message.answer("Bazada ishtirokchilar yo'q. G'olibni aniqlab bo'lmaydi.")
         
-        # Agar ishtirokchilar soni 4 tadan kam bo'lsa, borini tanlaydi
+        # Ishtirokchilar soniga qarab g'oliblar sonini belgilaymiz (maksimal 4 ta)
         winners_count = min(len(users), 4)
         
-        # Tasodifiy 4 ta g'olibni tanlaymiz (bir xil odam tushmaydi)
+        # Tasodifiy g'oliblarni tanlaymiz
         winners = random.sample(users, k=winners_count)
         
         admin_report = f"🎲 **RANDOM NATIJALARI ({winners_count} TA G'OLIB)** 🎲\n\n"
         
-        # Har bitta g'olibni ketma-ketlikda qayta ishlaymiz
         for index, winner in enumerate(winners, start=1):
-            winner_user_id = winner[0]
-            winner_id_number = winner[1]
-            winner_phone = winner[2]
-            winner_username = winner[3]
+            # Indekslarni aniq o'z joyiga joylashtiramiz:
+            winner_user_id = winner[0]   # user_id
+            winner_id_number = winner[1]  # id_number
+            winner_phone = winner[2]      # phone
+            winner_username = winner[3]   # username
             
-            # G'olibning o'ziga yuboriladigan xabar
+            # Username mavjudligini tekshiramiz
+            user_link = f"@{winner_username}" if winner_username and winner_username != "Mavjud emas" else "Mavjud emas"
+            
+            # G'olibning o'ziga boradigan tabrik xabari
             congrats_text = (
                 f"🎉 **URRAAA, SIZ G'OLIB BO'LDINGIZ!** 🎉\n\n"
                 f"Hurmatli ishtirokchi, siz 'Kosonsoy Gullari' konkursida omadli **random** funksiyasi orqali tanlab olindingiz va konkursimiz g'oliblaridan biriga aylandingiz! 🏆\n\n"
@@ -299,24 +301,23 @@ async def admin_pick_winner(message: types.Message):
             )
             
             try:
-                # Har bir g'olibga alohida xabar yuborish
+                # G'olibga xabar yuborish
                 await bot.send_message(chat_id=winner_user_id, text=congrats_text, parse_mode="Markdown")
                 winner_notified = "✅ Xabar yetkazildi"
             except Exception:
                 winner_notified = "❌ Xabar yuborilmadi (bloklagan)"
             
-            # Admin hisobotiga g'olibni qo'shish
+            # Admin uchun hisobot matnini shakllantiramiz
             admin_report += (
                 f"🏅 **{index}-O'rin G'olibi:** {winner_id_number}-ID egasi\n"
                 f"📞 Tel: {winner_phone}\n"
-                f"👤 Profil: @{winner_username}\n"
+                f"👤 Profil: {user_link}\n"
                 f"💬 Holat: {winner_notified}\n"
                 f"----------------------------------\n"
             )
-            # Server yuklamasini kamaytirish uchun qisqa kutish
             await asyncio.sleep(0.1)
             
-        # Adminga umumiy 4 ta g'olib ro'yxatini yuborish
+        # Adminga to'liq hisobotni yuboramiz
         await message.answer(admin_report, parse_mode="Markdown", reply_markup=get_admin_menu())
 
 # ============================================================
