@@ -3,6 +3,13 @@ import logging
 import asyncio
 import sqlite3
 import threading
+import random  # <-- AYNAN SHUNI QO'SHING
+from http.server import SimpleHTTPRequestHandler, HTTPServer
+import os
+import logging
+import asyncio
+import sqlite3
+import threading
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 
 from aiogram import Bot, Dispatcher, types, F
@@ -70,12 +77,14 @@ def get_admin_menu():
         resize_keyboard=True
     )
 
-def get_check_inline():
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="Kanalga o'tish", url="https://t.me/kosonsoygullari_official")],
-            [InlineKeyboardButton(text="✅ A'zo bo'ldim", callback_data="check_subs")]
-        ]
+def get_admin_menu():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="👥 Foydalanuvchilar ro'yxati"), KeyboardButton(text="📥 Hamma ID larni yuklash")],
+            [KeyboardButton(text="🎲 G'olibni aniqlash"), KeyboardButton(text="❌ ID larni o'chirish")], # <-- Tugma shu yerga qo'shildi
+            [KeyboardButton(text="✉️ Xabar tarqatish"), KeyboardButton(text="🏠 Foydalanuvchi menyusi")]
+        ],
+        resize_keyboard=True
     )
 
 # ============================================================
@@ -255,22 +264,50 @@ async def admin_broadcast_start(message: types.Message, state: FSMContext):
         await message.answer("Barcha foydalanuvchilarga yuboriladigan xabar matnini kiriting:")
         await state.set_state(AdminStates.waiting_for_broadcast)
 
-@dp.message(AdminStates.waiting_for_broadcast)
-async def admin_broadcast_send(message: types.Message, state: FSMContext):
-    cursor.execute("SELECT user_id FROM users")
-    users = cursor.fetchall()
-    await state.clear()
-    
-    send_count = 0
-    await message.answer("Xabar yuborish boshlandi...")
-    for user in users:
+@dp.message(F.text == "🎲 G'olibni aniqlash")
+async def admin_pick_winner(message: types.Message):
+    if message.from_user.id == ADMIN_ID:
+        # Bazadan barcha ishtirokchilarning ma'lumotlarini olamiz
+        cursor.execute("SELECT user_id, id_number, phone, username FROM users")
+        users = cursor.fetchall()
+        
+        if not users:
+            return await message.answer("Bazada ishtirokchilar yo'q. G'olibni aniqlab bo'lmaydi.")
+        
+        # Tasodifiy bitta g'olibni tanlaymiz
+        winner = random.choice(users)
+        
+        winner_user_id = winner[0]
+        winner_id_number = winner[1]
+        winner_phone = winner[2]
+        winner_username = winner[3]
+        
+        # G'olibga yuboriladigan tabrik xabari
+        congrats_text = (
+            "🎉 **URRAAA, SIZ G'OLIB BO'LDINGIZ!** 🎉\n\n"
+            f"Hurmatli ishtirokchi, siz 'Kosonsoy Gullari' konkursida omadli **random** funksiyasi orqali tanlab olindingiz va konkursimiz g'olibiga aylandingiz! 🏆\n\n"
+            f"Sizning omadli ID raqamingiz: *{winner_id_number}*\n\n"
+            "Yutuqni qabul qilib olish uchun yaqin daqiqalar ichida admin siz bilan bog'lanadi! Kanaldan chiqib ketmang. 🌸"
+        )
+        
         try:
-            await bot.send_message(chat_id=user[0], text=message.text)
-            send_count += 1
-            await asyncio.sleep(0.05)
-        except Exception:
-            pass
-    await message.answer(f"Xabar tarqatildi. {send_count} ta foydalanuvchiga yetib bordi.", reply_markup=get_admin_menu())
+            # G'olibning o'ziga xabar yuborish
+            await bot.send_message(chat_id=winner_user_id, text=congrats_text, parse_mode="Markdown")
+            winner_notified = "✅ G'olibga xabar avtomatik yetkazildi!"
+        except Exception as e:
+            winner_notified = f"❌ G'olibga xabar yuborib bo'lmadi (botni bloklagan bo'lishi mumkin): {e}"
+        
+        # Adminga g'olib haqida to'liq hisobot berish
+        admin_report = (
+            "🎲 **RANDOM NATIJASI (G'OLIB ANIQLANDI)** 🎲\n\n"
+            f"🏅 Konkurs G'olibi: {winner_id_number}-ID egasi\n"
+            f"📞 Telefon raqami: {winner_phone}\n"
+            f"👤 Telegram profili: @{winner_username}\n"
+            f"🆔 Telegram ID: `{winner_user_id}`\n\n"
+            f"{winner_notified}"
+        )
+        
+        await message.answer(admin_report, parse_mode="Markdown", reply_markup=get_admin_menu())
 
 # ============================================================
 # 7. BOTNI ISHGA TUSHIRISH FUNKSIYASI (Aiogram 3 versiyada)
