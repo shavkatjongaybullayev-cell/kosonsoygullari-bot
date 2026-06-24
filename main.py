@@ -320,6 +320,42 @@ async def admin_pick_winner(message: types.Message):
         # Adminga to'liq hisobotni yuboramiz
         await message.answer(admin_report, parse_mode="Markdown", reply_markup=get_admin_menu())
 
+@dp.message(F.text == "✉️ Xabar tarqatish")
+async def admin_broadcast_start(message: types.Message, state: FSMContext):
+    if message.from_user.id == ADMIN_ID:
+        await message.answer("Barcha foydalanuvchilarga yuboriladigan xabar matnini kiriting:")
+        # Botni foydalanuvchidan matn kutish holatiga o'tkazamiz
+        await state.set_state(AdminStates.waiting_for_broadcast)
+
+@dp.message(AdminStates.waiting_for_broadcast)
+async def admin_broadcast_send(message: types.Message, state: FSMContext):
+    # Faqat matnli xabarlarni tekshiramiz
+    if not message.text:
+        return await message.answer("Iltimos, faqat matnli xabar yuboring!")
+        
+    cursor.execute("SELECT user_id FROM users")
+    users = cursor.fetchall()
+    
+    # Holatni srazi tozalaymiz
+    await state.clear()
+    
+    if not users:
+        return await message.answer("Bazada foydalanuvchilar yo'q, xabar yuboriladigan odam topilmadi.", reply_markup=get_admin_menu())
+        
+    send_count = 0
+    await message.answer("Xabar yuborish boshlandi, iltimos kuting...")
+    
+    for user in users:
+        try:
+            # user[0] qilib yozish shart, chunki tuple ichida keladi
+            await bot.send_message(chat_id=user[0], text=message.text)
+            send_count += 1
+            await asyncio.sleep(0.05)
+        except Exception:
+            pass
+            
+    await message.answer(f"Xabar tarqatildi. {send_count} ta foydalanuvchiga yetib bordi.", reply_markup=get_admin_menu())
+    
 # ============================================================
 # 7. BOTNI ISHGA TUSHIRISH FUNKSIYASI (Aiogram 3 versiyada)
 # ============================================================
