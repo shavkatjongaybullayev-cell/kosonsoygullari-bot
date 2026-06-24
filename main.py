@@ -14,7 +14,7 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 # ============================================================
 # 1. ASOSIY SOZLAMALAR (Ma'lumotlar o'z joyida turibdi)
 # ============================================================
-BOT_TOKEN = "8816635869:AAG5R7mv9dJS-H-LYAT7ALCY2PDp6hSEdBE"
+BOT_TOKEN = "8816635869:AAFhYWs9TeqRp9TeYTgJdBO555h_eCXEAsc"
 CHANNEL_ID = "@kosonsoygullari_official"
 ADMIN_ID = 644872296  # Sizning Telegram ID raqamingiz
 
