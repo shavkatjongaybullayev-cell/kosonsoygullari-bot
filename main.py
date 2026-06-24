@@ -210,6 +210,7 @@ async def admin_download_ids(message: types.Message):
 @dp.message(F.text == "❌ ID larni o'chirish")
 async def admin_clear_ids(message: types.Message):
     if message.from_user.id == ADMIN_ID:
+        # Bazadan barcha foydalanuvchilarning ID raqamlarini olamiz
         cursor.execute("SELECT user_id FROM users")
         users = cursor.fetchall()
         
@@ -219,7 +220,7 @@ async def admin_clear_ids(message: types.Message):
         notification_text = (
             "⚠️ **Diqqat, konkurs ishtirokchilari!**\n\n"
             "Navbatdagi konkursimiz yakunlandi va barcha berilgan ID raqamlar bekor qilindi.\n"
-            "Yaqin kunlarda yeni konkurs start oladi! Yangi ID raqam olish uchun botni qayta faollashtirishingiz ( /start bosishingiz ) kerak bo'ladi.\n\n"
+            "Yaqin kunlarda yangi konkurs start oladi! Yangi ID raqam olish uchun botni qayta faollashtirishingiz ( /start bosishingiz ) kerak bo'ladi.\n\n"
             "Bizni kuzatishda davom eting: @kosonsoygullari_official"
         )
         
@@ -228,12 +229,16 @@ async def admin_clear_ids(message: types.Message):
         send_count = 0
         for user in users:
             try:
+                # user[0] qilib yozish shart, chunki tuple ichidan aniq ID raqamni ajratib olish kerak
                 await bot.send_message(chat_id=user[0], text=notification_text, parse_mode="Markdown")
                 send_count += 1
+                # Telegram serveri bloklab qo'ymasligi uchun har xabardan keyin 0.05 soniya kutamiz
                 await asyncio.sleep(0.05)
-            except Exception:
+            except Exception as e:
+                logging.error(f"Xabar yuborilmadi {user[0]}: {e}")
                 pass
         
+        # Xabarlar hamma ketgandan KEYIN bazani tozalaymiz
         cursor.execute("DELETE FROM users")
         conn.commit()
         
